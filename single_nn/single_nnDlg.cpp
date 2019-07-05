@@ -19,10 +19,7 @@ static char THIS_FILE[] = __FILE__;
 
 /////////////////////////////////////////////////////////////////////////////
 // CAboutDlg dialog used for App About
-#define InputDimen 6	
-#define HiddenDimen 45
-#define OutputDimen 1
-#define LearningRate	0.2
+#define MAXDimen 100
 #define MAXEpoch 10000
 #define MAXDataNum 20000
 
@@ -31,6 +28,24 @@ static char THIS_FILE[] = __FILE__;
 //0:Sigmoid
 //1:Relu
 //2:tanh
+
+//regular variables
+int input_dimen;
+int hidden_dimen;
+int output_dimen;
+double learn_rate;
+
+//weights and bias
+double weight_ih[MAXDimen][MAXDimen];
+double weight_ho[MAXDimen][MAXDimen];
+double bias_h[MAXDimen];
+double bias_o[MAXDimen];
+
+//train set data
+double data_y_pre_in_one_epoch[MAXDataNum][MAXDimen];
+double data_x_max[MAXDimen], data_x_min[MAXDimen];
+double data_y_max[MAXDimen], data_y_min[MAXDimen];
+int data_num;
 
 //debug and printf
 void InitConsoleWindow()
@@ -41,19 +56,6 @@ void InitConsoleWindow()
 	FILE * hf = _fdopen( hCrt, "w" );
 	*stdout = *hf;
 }
-
-//weights and bias
-double weight_ih[InputDimen][HiddenDimen];
-double weight_ho[HiddenDimen][OutputDimen];
-double bias_h[HiddenDimen];
-double bias_o[OutputDimen];
-
-//train set data
-double data_x[MAXDataNum][InputDimen], data_y[MAXDataNum][OutputDimen];
-double data_y_pre_in_one_epoch[MAXDataNum][OutputDimen];
-double data_x_max[InputDimen], data_x_min[InputDimen];
-double data_y_max[OutputDimen], data_y_min[OutputDimen];
-int data_num;
 
 //Dialog point
 CSingle_nnDlg* p_single_nn_dlg;
@@ -112,18 +114,18 @@ void WeightInit()
 	//init weight values in (0,1)
 	srand((unsigned)time(NULL)); 
 
-	for(i=0;i<InputDimen;i++)
+	for(i=0;i<input_dimen;i++)
 	{
-		for(j=0;j<HiddenDimen;j++)
+		for(j=0;j<hidden_dimen;j++)
 		{
 			weight_ih[i][j] = 2.0*((double)rand()/(RAND_MAX))-1.0;
 		}
 	}
 
 	//h->o
-	for(i=0;i<HiddenDimen;i++)
+	for(i=0;i<hidden_dimen;i++)
 	{
-		for(j=0;j<OutputDimen;j++)
+		for(j=0;j<output_dimen;j++)
 		{
 			weight_ho[i][j] = 2.0*((double)rand()/(RAND_MAX))-1.0;
 		}
@@ -136,192 +138,221 @@ void BiasInit()
 	srand((unsigned)time(NULL)); 
 
 	//bias in hidden layer
-	for (j=0;j<HiddenDimen;j++)
+	for (j=0;j<hidden_dimen;j++)
 	{
 		bias_h[j] = ((double)rand()/(RAND_MAX));
 	}
 
 	//bias in output layer
-	for (k=0;k<OutputDimen;k++)
+	for (k=0;k<output_dimen;k++)
 	{
 		bias_o[k] = ((double)rand()/(RAND_MAX));
 	}
 }
 
-void LoadTrainData()
+void InitNN()
 {
 	FILE *fp_read_train_data;
 	char ori_data[40];
-	int i;
-	p_single_nn_dlg->UpdateData(TRUE);
-	fp_read_train_data = fopen(p_single_nn_dlg->m_train_data_file_path, "r");
+	CSingle_nnDlg* pdlg = (CSingle_nnDlg*)AfxGetApp()->m_pMainWnd;
+	int i,k;
+
+	//variables setting
+	pdlg->UpdateData(TRUE);
+	input_dimen = pdlg->m_input_dimen;
+	hidden_dimen = pdlg->m_hidden_dimen;
+	output_dimen = pdlg->m_output_dimen;
+	learn_rate = pdlg->m_learn_rate;
+
+	//attemp to read one row data to give value for the max and min values for each dimen
+	fp_read_train_data = fopen(pdlg->m_train_data_file_path, "r");
+	for (i=0;i<input_dimen;i++)
+	{
+		fscanf(fp_read_train_data, "%s", ori_data);
+		data_x_max[i] = atof(ori_data);
+		data_x_min[i] = atof(ori_data);
+	}
+	for (k=0;k<output_dimen;k++)
+	{
+		fscanf(fp_read_train_data, "%s", ori_data);
+		data_y_max[k] = atof(ori_data);
+		data_y_min[k] = atof(ori_data);
+	}
+	fclose(fp_read_train_data);
+}
+
+void Data_Pre()
+{
+	FILE *fp_read_train_data;
+	char ori_data[40];
+	int i,k;
+	CSingle_nnDlg* pdlg = (CSingle_nnDlg*)AfxGetApp()->m_pMainWnd;
+	double data_temp;
+
+	pdlg->UpdateData(TRUE);
+	fp_read_train_data = fopen(pdlg->m_train_data_file_path, "r");
 	data_num = 0;
 	while(1)
 	{
-		for (i=0;i<InputDimen;i++)
+		for (i=0;i<input_dimen;i++)
 		{
 			fscanf(fp_read_train_data,"%s",ori_data);
-			data_x[data_num][i] = atof(ori_data);
+			data_temp = atof(ori_data);
+			if (data_temp>data_x_max[i])
+			{
+				data_x_max[i] = data_temp;
+			}
+			if (data_temp<data_x_min[i])
+			{
+				data_x_min[i] = data_temp;
+			}
 		}
-		for (i=0;i<OutputDimen;i++)
+		for (k=0;k<output_dimen;k++)
 		{
 			fscanf(fp_read_train_data,"%s",ori_data);
-			data_y[data_num][i] = atof(ori_data);
+			data_temp = atof(ori_data);
+			if (data_temp>data_y_max[k])
+			{
+				data_y_max[k] = data_temp;
+			}
+			if (data_temp<data_y_min[k])
+			{
+				data_y_min[k] = data_temp;
+			}
 		}
 		data_num = data_num + 1;
 
-		printf("read_row_id = %d\n",data_num);
+		//printf("read_row_id = %d\n",data_num);
 		if (feof(fp_read_train_data)||data_num>MAXDataNum)
 		{
 			printf("Complete data read, row = %d\n", data_num);
 			break;
 		}
 	}
-	//fscanf("%s",ori_data);
-	fclose(fp_read_train_data);
-}
 
-void Normalization()
-{
-	int i,j,k,n;
-	double t_max, t_min;
-	//obtain the max and min value for each dimension
-	for(i = 0;i<InputDimen;i++)
-	{
-		t_max = data_x[i][0];
-		t_min = data_x[i][0];
-		for (n = 1;n<data_num;n++)
-		{
-			if(data_x[n][i]>t_max)
-			{
-				t_max = data_x[n][i];
-			}
-			if(data_x[n][i]<t_min)
-			{
-				t_min = data_x[n][i];
-			}
-		}
-		data_x_max[i] = t_max;
-		data_x_min[i] = t_min;
-	}
-	for(k=0;k<OutputDimen;k++)
-	{
-		t_max = data_y[k][0];
-		t_min = data_y[k][0];
-		for(n=1;n<data_num;n++)
-		{
-			if(data_y[n][k]>t_max)
-			{
-				t_max = data_y[n][k];
-			}
-			if(data_y[n][k]<t_min)
-			{
-				t_min = data_y[n][k];
-			}
-		}
-		data_y_max[k] = t_max;
-		data_y_min[k] = t_min;
-	}
-	//printf
-	for(i=0;i<InputDimen;i++)
+	//printf the min and max values for each dimension
+	for(i=0;i<input_dimen;i++)
 	{
 		printf("InputDimen:%d\n",i);
 		printf("max = %f, min = %f\n",data_x_max[i],data_x_min[i]);
 	}
-	for(k=0;k<OutputDimen;k++)
+	for(k=0;k<output_dimen;k++)
 	{
 		printf("OutputDimen:%d\n",k);
 		printf("max = %f, min = %f\n",data_y_max[k],data_y_min[k]);
 	}
-
-	//nornalization:
-	for(n=0;n<data_num;n++)
-	{
-		for(i=0;i<InputDimen;i++)
-		{
-			data_x[n][i] = (data_x[n][i] - data_x_min[i])/(data_x_max[i] - data_x_min[i]);
-		}
-		for(k=0;k<OutputDimen;k++)
-		{
-			data_y[n][k] = (data_y[n][k] - data_y_min[k])/(data_y_max[k] - data_y_min[k]);
-		}
-	}
+	//fscanf("%s",ori_data);
+	fclose(fp_read_train_data);
 }
 
 void TrainBPNN()
 {
 	// TODO: Add your control notification handler code here
-	int epoch,i,j,k,n;
-	double t_y1[HiddenDimen];
-	double t_y2[OutputDimen];
-	double tWeightDelta2[OutputDimen];
-	double tWeightDelta1[HiddenDimen];
+	FILE *fp_read_train_data;
+	int epoch,i,j,k;
+	char ori_data[40];
+	double data_temp_x[MAXDimen], data_temp_y[MAXDimen];
+	double t_y1[MAXDimen];
+	double t_y2[MAXDimen];
+	double tWeightDelta2[MAXDimen];
+	double tWeightDelta1[MAXDimen];
 	double t_sum;
 	double accumulate_error;
-	double sum_x, sum_x2, sum_y, sum_y2, sum_xy, r2;
-
-	LoadTrainData();
-	Normalization();
+	double sum_x[MAXDimen], sum_x2[MAXDimen], sum_y[MAXDimen], sum_y2[MAXDimen], sum_xy[MAXDimen], r2[MAXDimen];
+	CSingle_nnDlg* pdlg = (CSingle_nnDlg*)AfxGetApp()->m_pMainWnd;
+	
+	InitNN();
+	Data_Pre();
 	WeightInit();
 	BiasInit();
-
+	
+	pdlg->UpdateData(TRUE);
 	//load training data and training:
 	for(epoch = 0; epoch<MAXEpoch; epoch = epoch + 1)
 	{
+		fp_read_train_data = fopen(pdlg->m_train_data_file_path, "r");
+		
 		accumulate_error = 0.0;
-		for (n=0;n<data_num;n++)
+		for (k=0;k<output_dimen;k++)
 		{
-			//In this for(), the aim is to calculate the actual output of corresponding to data_y[n]
-			
+			sum_x[k] = 0.0;
+			sum_x2[k] = 0.0;
+			sum_y[k] = 0.0;
+			sum_y2[k] = 0.0;
+			sum_xy[k] = 0.0;
+		}
+		
+		//read each data in train set:
+		while(1)
+		{
+			//read a piece of data and normalize it
+			for (i=0;i<input_dimen;i++)
+			{
+				fscanf(fp_read_train_data, "%s", ori_data);
+				data_temp_x[i] = atof(ori_data);
+				//normalization
+				data_temp_x[i] = (data_temp_x[i] - data_x_min[i])/(data_x_max[i] - data_x_min[i]);
+			}
+			for (k=0;k<output_dimen;k++)
+			{
+				fscanf(fp_read_train_data, "%s", ori_data);
+				data_temp_y[k] = atof(ori_data);
+				data_temp_y[k] = (data_temp_y[k] - data_y_min[k])/(data_y_max[k] - data_y_min[k]);
+			}
+
 			//Step1: foward calculation:
 			//input layer->hidden layer
-			for (j=0;j<HiddenDimen;j++)
+			for (j=0;j<hidden_dimen;j++)
 			{
 				t_sum = 0.0;
-				for (i=0;i<InputDimen;i++)
+				for (i=0;i<input_dimen;i++)
 				{
-					t_sum = weight_ih[i][j]*data_x[n][i] + t_sum;
+					t_sum = weight_ih[i][j]*data_temp_x[i] + t_sum;
 				}
-
 				t_y1[j] = fNet(t_sum + bias_h[j],FNET_ID1);
 			}
 
 			//hidden layer->output layer
-			for (k=0;k<OutputDimen;k++)
+			for (k=0;k<output_dimen;k++)
 			{
 				t_sum = 0.0;
-				for (j=0;j<HiddenDimen;j++)
+				for (j=0;j<hidden_dimen;j++)
 				{
 					t_sum = weight_ho[j][k]*t_y1[j] + t_sum;
 				}
 				t_y2[k] = fNet(t_sum + bias_o[k],FNET_ID1);
-				data_y_pre_in_one_epoch[n][k] = t_y2[k];
 				//the error accumulated as more data are reading
-				accumulate_error = accumulate_error + fabs(data_y[n][k] - t_y2[k]);
+
+				accumulate_error = accumulate_error + fabs(data_temp_y[k] - t_y2[k]);
+				sum_x[k] = sum_x[k] + t_y2[k];
+				sum_x2[k] = sum_x2[k] + t_y2[k]*t_y2[k];
+				sum_y[k] = sum_y[k] + data_temp_y[k];
+				sum_y2[k] = sum_y2[k] + data_temp_y[k]*data_temp_y[k];
+				sum_xy[k] = sum_xy[k] + t_y2[k]*data_temp_y[k];		
 			}
 			
 			//Step 2. Backpropagation calculation
 			//the tWeightDelta in output layer
-			for (k=0;k<OutputDimen;k++)
+			for (k=0;k<output_dimen;k++)
 			{
-				tWeightDelta2[k] = dNet(t_y2[k],FNET_ID1)*(data_y[n][k]-t_y2[k]);
+				tWeightDelta2[k] = dNet(t_y2[k],FNET_ID1)*(data_temp_y[k]-t_y2[k]);
 			}
 
 			//adjust the weight from hidden to output layer		
-			for (k=0;k<OutputDimen;k++)
+			for (k=0;k<output_dimen;k++)
 			{
-				for (j=0;j<HiddenDimen;j++)
+				for (j=0;j<hidden_dimen;j++)
 				{
-					weight_ho[j][k] = weight_ho[j][k] + LearningRate*tWeightDelta2[k]*t_y1[j];
+					weight_ho[j][k] = weight_ho[j][k] + learn_rate*tWeightDelta2[k]*t_y1[j];
 				}
-				bias_o[k] = bias_o[k] + LearningRate*tWeightDelta2[k];
+				bias_o[k] = bias_o[k] + learn_rate*tWeightDelta2[k];
 			}
 
 			//adjust the weight from input to hidden layer
-			for (j=0;j<HiddenDimen;j++)
+			for (j=0;j<hidden_dimen;j++)
 			{
 				t_sum = 0.0;
-				for (k=0;k<OutputDimen;k++)
+				for (k=0;k<output_dimen;k++)
 				{
 					t_sum = t_sum + tWeightDelta2[k]*weight_ho[j][k];
 				}
@@ -329,88 +360,102 @@ void TrainBPNN()
 				tWeightDelta1[j] = t_sum*dNet(t_y1[j], FNET_ID1);
 			}
 
-			for (j=0;j<HiddenDimen;j++)
+			for (j=0;j<hidden_dimen;j++)
 			{
-				for (i=0;i<InputDimen;i++)
+				for (i=0;i<input_dimen;i++)
 				{
-					weight_ih[i][j] = weight_ih[i][j] + LearningRate*tWeightDelta1[j]*data_x[n][i];
+					weight_ih[i][j] = weight_ih[i][j] + learn_rate*tWeightDelta1[j]*data_temp_x[i];
 				}
-				bias_h[j] = bias_h[j] + LearningRate*tWeightDelta1[j];
+				bias_h[j] = bias_h[j] + learn_rate*tWeightDelta1[j];
 			}			
-		}
-		if (epoch%100==0)
-		{
-			printf("%d\t%f\n",epoch,accumulate_error);
-			//calculate regression cofficient for each output dimension
-			//_x is predicted value, _y is label value
-			for(k=0;k<OutputDimen;k++)
+			
+			if (feof(fp_read_train_data))
 			{
-				printf("OutputDimen:%d\n",k);
-				sum_x = 0.0;
-				sum_x2 = 0.0;
-				sum_y = 0.0;
-				sum_y2 = 0.0;
-				sum_xy = 0.0;
-				for(n=0;n<data_num;n++)
+				for (k=0;k<output_dimen;k++)
 				{
-					sum_x = sum_x + data_y_pre_in_one_epoch[n][k];
-					sum_x2 = sum_x2 + data_y_pre_in_one_epoch[n][k]*data_y_pre_in_one_epoch[n][k];
-					sum_y = sum_y + data_y[n][k];
-					sum_y2 = sum_y2 + data_y[n][k]*data_y[n][k];
-					sum_xy = sum_xy + data_y_pre_in_one_epoch[n][k]*data_y[n][k];
+					r2[k] = ( sum_xy[k] - (sum_x[k]*sum_y[k])/((double)data_num) )/sqrt( (sum_x2[k] - (sum_x[k]*sum_x[k])/(((double)data_num)))*(sum_y2[k] - (sum_y[k]*sum_y[k])/(((double)data_num))) );
 				}
-				r2 = ( sum_xy - (sum_x*sum_y)/((double)data_num) )/sqrt( (sum_x2 - (sum_x*sum_x)/(((double)data_num)))*(sum_y2 - (sum_y*sum_y)/(((double)data_num))) );
-				printf("r2 = %f\n",r2);
+				break;
 			}
 		}
+
+		if (epoch%100==0)
+		{
+			printf("%d\t%f\t",epoch,accumulate_error);
+			//printf regression cofficient for each output dimension
+			for(k=0;k<output_dimen;k++)
+			{
+				printf("OutputDimen:%d\t",k);				
+				printf("r2[%d] = %f\t",k,r2[k]);
+			}
+			printf("\n");
+		}
+		fclose(fp_read_train_data);
 	}
 }
 
 void Test()
 {
+	FILE *fp_read_train_data;
 	FILE* fp_test;
-	int i,j,k,n;
-	double t_y1[HiddenDimen];
-	double t_y2[OutputDimen];
+	int i,j,k;
+	char ori_data[40];
+	double t_y1[MAXDimen];
+	double t_y2[MAXDimen];
+	double data_temp_x[MAXDimen], data_temp_y[MAXDimen];
 	double t_sum;
+	CSingle_nnDlg* pdlg = (CSingle_nnDlg*)AfxGetApp()->m_pMainWnd;
 
 	system("cls");
 	fp_test = fopen("test_results.txt","w");
-	for(n=0;n<data_num;n++)
+	fp_read_train_data = fopen(pdlg->m_train_data_file_path, "r");
+	while(1)
 	{
 		//printf demension
-		for (i=0;i<InputDimen;i++)
+		for (i=0;i<input_dimen;i++)
 		{
-			fprintf(fp_test,"%f\t",data_x[n][i]*(data_x_max[i] - data_x_min[i]) + data_x_min[i]);
+			fscanf(fp_read_train_data,"%s",ori_data);
+			data_temp_x[i] = atof(ori_data);
+			fprintf(fp_test,"%f\t",data_temp_x[i]);
+			//normalization:
+			data_temp_x[i] = (data_temp_x[i] - data_x_min[i])/(data_x_max[i] - data_x_min[i]);
 		}
 
 		//input layer->hidden layer
-		for (j=0;j<HiddenDimen;j++)
+		for (j=0;j<hidden_dimen;j++)
 		{
 			t_sum = 0.0;
-			for (i=0;i<InputDimen;i++)
+			for (i=0;i<input_dimen;i++)
 			{
-				t_sum = weight_ih[i][j]*data_x[n][i] + t_sum;
+				t_sum = weight_ih[i][j]*data_temp_x[i] + t_sum;
 			}
 
 			t_y1[j] = fNet(t_sum + bias_h[j],FNET_ID1);
 		}
 
 		//hidden layer->output layer
-		for (k=0;k<OutputDimen;k++)
+		for (k=0;k<output_dimen;k++)
 		{
+			fscanf(fp_read_train_data,"%s",ori_data);
+			data_temp_y[k] = atof(ori_data);
+			fprintf(fp_test,"%f\t", data_temp_y[k]);
+
 			t_sum = 0.0;
-			for (j=0;j<HiddenDimen;j++)
+			for (j=0;j<hidden_dimen;j++)
 			{
 				t_sum = weight_ho[j][k]*t_y1[j] + t_sum;
 			}
 			t_y2[k] = fNet(t_sum + bias_o[k],FNET_ID1);
-			
-			fprintf(fp_test,"%f\t", data_y[n][k]*(data_y_max[k]-data_y_min[k]) + data_y_min[k]);
 			fprintf(fp_test,"%f", t_y2[k]*(data_y_max[k]-data_y_min[k]) + data_y_min[k]);
 		}
 		fprintf(fp_test, "\n");
+		
+		if (feof(fp_read_train_data))
+		{
+			break;
+		}
 	}
+	fclose(fp_read_train_data);
 	fclose(fp_test);
 }
 
@@ -463,7 +508,12 @@ CSingle_nnDlg::CSingle_nnDlg(CWnd* pParent /*=NULL*/)
 	: CDialog(CSingle_nnDlg::IDD, pParent)
 {
 	//{{AFX_DATA_INIT(CSingle_nnDlg)
-	m_train_data_file_path = _T("TrainData_zhanjiba.txt");
+	m_train_data_file_path = _T("TrainData_zhantianyou.txt");
+	m_input_dimen = 6;
+	m_hidden_dimen = 30;
+	m_output_dimen = 1;
+	m_learn_rate = 0.2;
+	m_activate_fun_id = 0;
 	//}}AFX_DATA_INIT
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -474,6 +524,11 @@ void CSingle_nnDlg::DoDataExchange(CDataExchange* pDX)
 	CDialog::DoDataExchange(pDX);
 	//{{AFX_DATA_MAP(CSingle_nnDlg)
 	DDX_Text(pDX, IDC_EDIT1, m_train_data_file_path);
+	DDX_Text(pDX, IDC_EDIT2, m_input_dimen);
+	DDX_Text(pDX, IDC_EDIT3, m_hidden_dimen);
+	DDX_Text(pDX, IDC_EDIT4, m_output_dimen);
+	DDX_Text(pDX, IDC_EDIT5, m_learn_rate);
+	DDX_Text(pDX, IDC_EDIT6, m_activate_fun_id);
 	//}}AFX_DATA_MAP
 }
 
@@ -520,7 +575,7 @@ BOOL CSingle_nnDlg::OnInitDialog()
 	
 	// TODO: Add extra initialization here
 	InitConsoleWindow();
-	p_single_nn_dlg = this;
+
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -576,8 +631,8 @@ HCURSOR CSingle_nnDlg::OnQueryDragIcon()
 void CSingle_nnDlg::OnLoadData() 
 {
 	// TODO: Add your control notification handler code here
-	LoadTrainData();
-	Normalization();
+	InitNN();
+	Data_Pre();
 }
 
 void CSingle_nnDlg::ReadTrainData()
@@ -587,7 +642,7 @@ void CSingle_nnDlg::ReadTrainData()
 void CSingle_nnDlg::OnTrain() 
 {
 	// TODO: Add your control notification handler code here
-	LoadTrainData();
+	Data_Pre();
 	WeightInit();
 	BiasInit();
 	TrainBPNN();

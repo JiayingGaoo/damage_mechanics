@@ -22,6 +22,11 @@ public:
 	//{{AFX_DATA(CSingle_nnDlg)
 	enum { IDD = IDD_SINGLE_NN_DIALOG };
 	CString	m_train_data_file_path;
+	int		m_input_dimen;
+	int		m_hidden_dimen;
+	int		m_output_dimen;
+	double	m_learn_rate;
+	int		m_activate_fun_id;
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides
