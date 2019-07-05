@@ -1,0 +1,28 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: single_nn - Win32 Debug--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "C:\Users\t-jiaga\AppData\Local\Temp\RSPC9C5.tmp" with contents
+[
+/nologo /MDd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "_AFXDLL" /D "_MBCS" /Fp"Debug/single_nn.pch" /Yu"stdafx.h" /Fo"Debug/" /Fd"Debug/" /FD /GZ   /c 
+"D:\alex\code\Practice\single_nn\single_nnDlg.cpp"
+]
+Creating command line "cl.exe @"C:\Users\t-jiaga\AppData\Local\Temp\RSPC9C5.tmp"" 
+Creating command line "link.exe /nologo /subsystem:windows /incremental:yes /pdb:"Debug/single_nn.pdb" /debug /machine:I386 /out:"Debug/single_nn.exe" /pdbtype:sept  .\Debug\single_nn.obj .\Debug\single_nnDlg.obj .\Debug\StdAfx.obj .\Debug\single_nn.res "
+<h3>Output Window</h3>
+Compiling...
+single_nnDlg.cpp
+D:\alex\code\Practice\single_nn\single_nnDlg.cpp(186) : warning C4101: 'j' : unreferenced local variable
+Linking...
+
+
+
+<h3>Results</h3>
+single_nn.exe - 0 error(s), 1 warning(s)
+</pre>
+</body>
+</html>
