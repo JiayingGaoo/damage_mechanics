@@ -75,7 +75,7 @@ Control18=IDC_BUTTON3,button,1342242816
 [DLG:IDD_SINGLE_NN_DIALOG (English (U.S.))]
 Type=1
 Class=CSingle_nnDlg
-ControlCount=19
+ControlCount=20
 Control1=IDC_EDIT1,edit,1350631552
 Control2=IDC_BUTTON1,button,1342275584
 Control3=IDC_EDIT2,edit,1350631552
@@ -95,6 +95,7 @@ Control16=IDC_STATIC,static,1342308352
 Control17=IDC_EDIT7,edit,1350631552
 Control18=IDC_STATIC,button,1342177287
 Control19=IDC_STATIC,button,1342177287
+Control20=IDC_EDIT8,edit,1350631552
 
 [DLG:IDD_ABOUTBOX (English (U.S.))]
 Type=1
