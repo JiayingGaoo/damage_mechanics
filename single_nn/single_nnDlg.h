@@ -27,6 +27,7 @@ public:
 	int		m_output_dimen;
 	double	m_learn_rate;
 	int		m_activate_fun_id;
+	int		m_max_train_epoch;
 	//}}AFX_DATA
 
 	// ClassWizard generated virtual function overrides

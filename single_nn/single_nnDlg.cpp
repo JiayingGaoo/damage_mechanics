@@ -20,7 +20,6 @@ static char THIS_FILE[] = __FILE__;
 /////////////////////////////////////////////////////////////////////////////
 // CAboutDlg dialog used for App About
 #define MAXDimen 100
-#define MAXEpoch 10000
 #define MAXDataNum 20000
 
 #define FNET_ID1 0
@@ -34,6 +33,7 @@ int input_dimen;
 int hidden_dimen;
 int output_dimen;
 double learn_rate;
+int max_train_epoch;
 
 //weights and bias
 double weight_ih[MAXDimen][MAXDimen];
@@ -163,6 +163,7 @@ void InitNN()
 	hidden_dimen = pdlg->m_hidden_dimen;
 	output_dimen = pdlg->m_output_dimen;
 	learn_rate = pdlg->m_learn_rate;
+	max_train_epoch = pdlg->m_max_train_epoch;
 
 	//attemp to read one row data to give value for the max and min values for each dimen
 	fp_read_train_data = fopen(pdlg->m_train_data_file_path, "r");
@@ -225,22 +226,22 @@ void Data_Pre()
 		//printf("read_row_id = %d\n",data_num);
 		if (feof(fp_read_train_data)||data_num>MAXDataNum)
 		{
-			printf("Complete data read, row = %d\n", data_num);
+			printf("Complete reading data:\n%s: %d\n", pdlg->m_train_data_file_path,data_num);
 			break;
 		}
 	}
 
-	//printf the min and max values for each dimension
-	for(i=0;i<input_dimen;i++)
-	{
-		printf("InputDimen:%d\n",i);
-		printf("max = %f, min = %f\n",data_x_max[i],data_x_min[i]);
-	}
-	for(k=0;k<output_dimen;k++)
-	{
-		printf("OutputDimen:%d\n",k);
-		printf("max = %f, min = %f\n",data_y_max[k],data_y_min[k]);
-	}
+//	//printf the min and max values for each dimension
+//	for(i=0;i<input_dimen;i++)
+//	{
+//		printf("InputDimen:%d\n",i);
+//		printf("max = %f, min = %f\n",data_x_max[i],data_x_min[i]);
+//	}
+//	for(k=0;k<output_dimen;k++)
+//	{
+//		printf("OutputDimen:%d\n",k);
+//		printf("max = %f, min = %f\n",data_y_max[k],data_y_min[k]);
+//	}
 	//fscanf("%s",ori_data);
 	fclose(fp_read_train_data);
 }
@@ -268,7 +269,7 @@ void TrainBPNN()
 	
 	pdlg->UpdateData(TRUE);
 	//load training data and training:
-	for(epoch = 0; epoch<MAXEpoch; epoch = epoch + 1)
+	for(epoch = 0; epoch<max_train_epoch; epoch = epoch + 1)
 	{
 		fp_read_train_data = fopen(pdlg->m_train_data_file_path, "r");
 		
@@ -508,12 +509,13 @@ CSingle_nnDlg::CSingle_nnDlg(CWnd* pParent /*=NULL*/)
 	: CDialog(CSingle_nnDlg::IDD, pParent)
 {
 	//{{AFX_DATA_INIT(CSingle_nnDlg)
-	m_train_data_file_path = _T("TrainData_zhantianyou.txt");
-	m_input_dimen = 6;
+	m_train_data_file_path = _T("TrainData_1.txt");
+	m_input_dimen = 3;
 	m_hidden_dimen = 30;
 	m_output_dimen = 1;
 	m_learn_rate = 0.2;
 	m_activate_fun_id = 0;
+	m_max_train_epoch = 10000;
 	//}}AFX_DATA_INIT
 	// Note that LoadIcon does not require a subsequent DestroyIcon in Win32
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
@@ -529,6 +531,7 @@ void CSingle_nnDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT4, m_output_dimen);
 	DDX_Text(pDX, IDC_EDIT5, m_learn_rate);
 	DDX_Text(pDX, IDC_EDIT6, m_activate_fun_id);
+	DDX_Text(pDX, IDC_EDIT7, m_max_train_epoch);
 	//}}AFX_DATA_MAP
 }
 
