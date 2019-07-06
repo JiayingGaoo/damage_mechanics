@@ -1,0 +1,1 @@
+It is a NN model for prediction. Just run run.bat file to launch the program for training and test.
